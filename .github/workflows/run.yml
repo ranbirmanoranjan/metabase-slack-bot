@@ -2,17 +2,16 @@ name: Metabase to Slack
 
 on:
   schedule:
-    # 10:00 AM IST = 04:30 UTC
-    - cron: "30 4 * * *"
-    # 6:00 PM IST = 12:30 UTC
-    - cron: "30 12 * * *"
+    # Run every 4 hours
+    - cron: "0 */4 * * *"
   workflow_dispatch:
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Python
@@ -20,7 +19,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           pip install -r requirements.txt
           playwright install chromium
