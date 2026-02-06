@@ -11,14 +11,17 @@ def main():
         browser = p.chromium.launch()
         page = browser.new_page(viewport={"width": 1920, "height": 1080})
 
-        page.goto(DASHBOARD_URL, timeout=60000)
+        # Open dashboard
+        page.goto(DASHBOARD_URL, wait_until="networkidle", timeout=90000)
 
-        # Wait till dashboard widgets load
-        page.wait_for_selector("div.Card, div.Dashboard", timeout=60000)
+        # Strong wait for charts/data
+        page.wait_for_timeout(30000)   # 30 sec wait
 
-        # Extra safety wait
-        page.wait_for_timeout(15000)
+        # Scroll to force lazy loading
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        page.wait_for_timeout(5000)
 
+        # Take screenshot
         page.screenshot(path="dashboard.png", full_page=True)
 
         browser.close()
