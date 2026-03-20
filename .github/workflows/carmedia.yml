@@ -1,4 +1,4 @@
-name: Carmedia Screenshot to Slack
+name: Carmedia Dashboard to Slack
 
 on:
   schedule:
@@ -32,7 +32,7 @@ jobs:
 
             const page = await browser.newPage();
 
-            await page.goto('https://metabase.spyne.ai/public/question/0be95c61-f631-4138-aa45-8b5d59b385b7', {
+            await page.goto('${{ secrets.DASHBOARD_URL }}', {
               waitUntil: 'networkidle2',
               timeout: 0
             });
@@ -52,13 +52,10 @@ jobs:
 
           node screenshot.js
 
-      - name: Send Screenshot to Slack
+      - name: Send Message to Slack (FINAL)
         run: |
-          curl -X POST https://slack.com/api/files.upload \
-            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -F file=@screenshot.png \
-            -F "initial_comment=📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)" \
-            -F channels=$SLACK_CHANNEL_ID
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID_CARMEDIA }}
+          curl -X POST -H 'Content-type: application/json' \
+          --data "{
+            \"text\": \"📊 *Carmedia QC Pendency Dashboard* (Auto every 3 hrs)\n🔗 ${{ secrets.DASHBOARD_URL }}\"
+          }" \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
