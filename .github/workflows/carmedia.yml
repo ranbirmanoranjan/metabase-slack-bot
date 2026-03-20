@@ -54,20 +54,15 @@ jobs:
         env:
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
 
-      - name: Verify Screenshot Exists
-        run: ls -lh screenshot.png
-
-      - name: Upload Screenshot to Slack (FINAL FIX)
+      - name: Upload Screenshot to Slack (FINAL WORKING)
         run: |
           FILE_SIZE=$(wc -c < screenshot.png)
           echo "File size: $FILE_SIZE"
 
-          echo "{\"filename\":\"screenshot.png\",\"length\":$FILE_SIZE}" > payload.json
-
           RESPONSE=$(curl -s -X POST https://slack.com/api/files.getUploadURLExternal \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-Type: application/json" \
-            --data @payload.json)
+            --data "{\"filename\":\"screenshot.png\",\"length\":$FILE_SIZE}")
 
           echo "Slack response: $RESPONSE"
 
@@ -78,12 +73,10 @@ jobs:
             -H "Content-Type: application/octet-stream" \
             --data-binary @screenshot.png
 
-          echo "{\"files\":[{\"id\":\"$FILE_ID\",\"title\":\"Carmedia Dashboard\"}],\"channel_id\":\"$SLACK_CHANNEL_ID\",\"initial_comment\":\"📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)\"}" > complete.json
-
           curl -s -X POST https://slack.com/api/files.completeUploadExternal \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-Type: application/json" \
-            --data @complete.json
+            --data "{\"files\":[{\"id\":\"$FILE_ID\",\"title\":\"Carmedia Dashboard\"}],\"channel_id\":\"$SLACK_CHANNEL_ID\",\"initial_comment\":\"📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)\"}"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID_CARMEDIA }}
