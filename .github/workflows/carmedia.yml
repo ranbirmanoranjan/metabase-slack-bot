@@ -37,7 +37,6 @@ jobs:
               timeout: 0
             });
 
-            // wait for full dashboard load
             await new Promise(resolve => setTimeout(resolve, 30000));
 
             await page.setViewport({ width: 1920, height: 1080 });
@@ -56,21 +55,19 @@ jobs:
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
 
       - name: Verify Screenshot Exists
-        run: |
-          ls -lh screenshot.png
+        run: ls -lh screenshot.png
 
-      - name: Upload Screenshot to Slack (FINAL STABLE)
+      - name: Upload Screenshot to Slack (FINAL FIX)
         run: |
           FILE_SIZE=$(wc -c < screenshot.png)
           echo "File size: $FILE_SIZE"
 
+          echo "{\"filename\":\"screenshot.png\",\"length\":$FILE_SIZE}" > payload.json
+
           RESPONSE=$(curl -s -X POST https://slack.com/api/files.getUploadURLExternal \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-Type: application/json; charset=utf-8" \
-            --data-raw "{
-              \"filename\": \"screenshot.png\",
-              \"length\": $FILE_SIZE
-            }")
+            -H "Content-Type: application/json" \
+            --data @payload.json)
 
           echo "Slack response: $RESPONSE"
 
@@ -81,14 +78,12 @@ jobs:
             -H "Content-Type: application/octet-stream" \
             --data-binary @screenshot.png
 
+          echo "{\"files\":[{\"id\":\"$FILE_ID\",\"title\":\"Carmedia Dashboard\"}],\"channel_id\":\"$SLACK_CHANNEL_ID\",\"initial_comment\":\"📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)\"}" > complete.json
+
           curl -s -X POST https://slack.com/api/files.completeUploadExternal \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-Type: application/json; charset=utf-8" \
-            --data-raw "{
-              \"files\": [{\"id\": \"$FILE_ID\", \"title\": \"Carmedia Dashboard\"}],
-              \"channel_id\": \"$SLACK_CHANNEL_ID\",
-              \"initial_comment\": \"📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)\"
-            }"
+            -H "Content-Type: application/json" \
+            --data @complete.json
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID_CARMEDIA }}
