@@ -13,7 +13,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y nodejs npm jq
+          sudo apt-get install -y nodejs npm
 
       - name: Install Puppeteer
         run: |
@@ -32,7 +32,7 @@ jobs:
 
             const page = await browser.newPage();
 
-            await page.goto(process.env.DASHBOARD_URL, {
+            await page.goto('https://metabase.spyne.ai/public/question/0be95c61-f631-4138-aa45-8b5d59b385b7', {
               waitUntil: 'networkidle2',
               timeout: 0
             });
@@ -51,43 +51,18 @@ jobs:
           EOF
 
           node screenshot.js
-        env:
-          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
 
-      - name: Upload Screenshot to Slack (FINAL FIX - JQ)
+      - name: Verify Screenshot
         run: |
-          FILE_SIZE=$(stat -c%s screenshot.png)
-          echo "File size: $FILE_SIZE"
+          ls -lh screenshot.png
 
-          PAYLOAD=$(jq -n \
-            --arg filename "screenshot.png" \
-            --argjson length $FILE_SIZE \
-            '{filename: $filename, length: $length}')
-
-          RESPONSE=$(curl -s -X POST https://slack.com/api/files.getUploadURLExternal \
+      - name: Send Screenshot to Slack (FINAL WORKING)
+        run: |
+          curl -X POST https://slack.com/api/files.upload \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-Type: application/json" \
-            --data "$PAYLOAD")
-
-          echo "Slack response: $RESPONSE"
-
-          UPLOAD_URL=$(echo "$RESPONSE" | jq -r '.upload_url')
-          FILE_ID=$(echo "$RESPONSE" | jq -r '.file_id')
-
-          curl -s -X POST "$UPLOAD_URL" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @screenshot.png
-
-          COMPLETE_PAYLOAD=$(jq -n \
-            --arg file_id "$FILE_ID" \
-            --arg channel "$SLACK_CHANNEL_ID" \
-            --arg comment "📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)" \
-            '{files: [{id: $file_id, title: "Carmedia Dashboard"}], channel_id: $channel, initial_comment: $comment}')
-
-          curl -s -X POST https://slack.com/api/files.completeUploadExternal \
-            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-Type: application/json" \
-            --data "$COMPLETE_PAYLOAD"
+            -F file=@screenshot.png \
+            -F "initial_comment=📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)" \
+            -F channels=$SLACK_CHANNEL_ID
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID_CARMEDIA }}
