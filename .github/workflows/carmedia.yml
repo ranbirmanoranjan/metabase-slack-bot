@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install Node
+      - name: Install Node + jq
         run: |
           sudo apt-get update
           sudo apt-get install -y nodejs npm jq
@@ -53,8 +53,7 @@ jobs:
           DASHBOARD_URL=${{ secrets.DASHBOARD_URL_CARMEDIA }} node screenshot.js
 
       # STEP 1: Get Upload URL
-      - name: Get Upload URL
-        id: get_url
+      - name: Get Upload URL (DEBUG)
         run: |
           FILE_SIZE=$(stat -c%s screenshot.png)
 
@@ -63,10 +62,21 @@ jobs:
           -H "Content-Type: application/json" \
           -d "{\"filename\":\"screenshot.png\",\"length\":$FILE_SIZE}")
 
+          echo "FULL RESPONSE:"
           echo "$RESPONSE"
 
-          echo "UPLOAD_URL=$(echo $RESPONSE | jq -r '.upload_url')" >> $GITHUB_ENV
-          echo "FILE_ID=$(echo $RESPONSE | jq -r '.file_id')" >> $GITHUB_ENV
+          OK=$(echo $RESPONSE | jq -r '.ok')
+
+          if [ "$OK" != "true" ]; then
+            echo "❌ Slack API FAILED"
+            exit 1
+          fi
+
+          UPLOAD_URL=$(echo $RESPONSE | jq -r '.upload_url')
+          FILE_ID=$(echo $RESPONSE | jq -r '.file_id')
+
+          echo "UPLOAD_URL=$UPLOAD_URL" >> $GITHUB_ENV
+          echo "FILE_ID=$FILE_ID" >> $GITHUB_ENV
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
@@ -78,7 +88,7 @@ jobs:
           --data-binary @screenshot.png
 
       # STEP 3: Complete Upload
-      - name: Complete Upload to Slack
+      - name: Complete Upload
         run: |
           curl -X POST https://slack.com/api/files.completeUploadExternal \
           -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
