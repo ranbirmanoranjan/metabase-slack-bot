@@ -3,7 +3,7 @@ name: Carmedia Screenshot to Slack
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 */3 * * *"   # every 3 hours
+    - cron: "0 */3 * * *"
 
 jobs:
   screenshot:
