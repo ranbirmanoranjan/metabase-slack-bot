@@ -32,12 +32,13 @@ jobs:
 
             const page = await browser.newPage();
 
-            await page.goto('https://metabase.spyne.ai/public/question/0be95c61-f631-4138-aa45-8b5d59b385b7', {
+            await page.goto(process.env.DASHBOARD_URL, {
               waitUntil: 'networkidle2',
               timeout: 0
             });
 
-            await new Promise(resolve => setTimeout(resolve, 20000));
+            // wait for full data load (important)
+            await new Promise(resolve => setTimeout(resolve, 30000));
 
             await page.setViewport({ width: 1920, height: 1080 });
 
@@ -51,15 +52,16 @@ jobs:
           EOF
 
           node screenshot.js
+        env:
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
 
-      - name: Send Message to Slack
+      - name: Send Screenshot to Slack
         run: |
-          curl -X POST https://slack.com/api/chat.postMessage \
+          curl -X POST https://slack.com/api/files.upload \
           -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-          -H "Content-type: application/json" \
-          --data "{
-            \"channel\": \"#carmedia-qc-pendency-internal\",
-            \"text\": \"📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)\"
-          }"
+          -F channels=$SLACK_CHANNEL_ID \
+          -F file=@screenshot.png \
+          -F initial_comment="📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
