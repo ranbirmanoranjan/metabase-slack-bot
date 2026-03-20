@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install dependencies
+      - name: Install Node
         run: |
           sudo apt-get update
           sudo apt-get install -y nodejs npm
@@ -37,7 +37,8 @@ jobs:
               timeout: 0
             });
 
-            await new Promise(resolve => setTimeout(resolve, 30000));
+            // same as Chevrolet — simple wait
+            await new Promise(resolve => setTimeout(resolve, 25000));
 
             await page.setViewport({ width: 1920, height: 1080 });
 
@@ -52,17 +53,13 @@ jobs:
 
           node screenshot.js
 
-      - name: Verify Screenshot
+      - name: Send to Slack (CHEVROLET STYLE)
         run: |
-          ls -lh screenshot.png
-
-      - name: Send Screenshot to Slack (FINAL WORKING)
-        run: |
-          curl -X POST https://slack.com/api/files.upload \
-            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -F file=@screenshot.png \
-            -F "initial_comment=📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)" \
-            -F channels=$SLACK_CHANNEL_ID
+          curl -F file=@screenshot.png \
+          -F "initial_comment=📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)" \
+          -F channels=$SLACK_CHANNEL_ID \
+          -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+          https://slack.com/api/files.upload
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID_CARMEDIA }}
