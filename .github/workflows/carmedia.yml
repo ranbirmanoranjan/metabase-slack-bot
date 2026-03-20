@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install Node
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y nodejs npm
+          sudo apt-get install -y nodejs npm jq
 
       - name: Install Puppeteer
         run: |
@@ -37,7 +37,7 @@ jobs:
               timeout: 0
             });
 
-            // wait for full data load (important)
+            // wait for full dashboard load
             await new Promise(resolve => setTimeout(resolve, 30000));
 
             await page.setViewport({ width: 1920, height: 1080 });
@@ -55,13 +55,30 @@ jobs:
         env:
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
 
-      - name: Send Screenshot to Slack
+      - name: Upload Screenshot to Slack (LATEST API)
         run: |
-          curl -X POST https://slack.com/api/files.upload \
-          -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-          -F channels=$SLACK_CHANNEL_ID \
-          -F file=@screenshot.png \
-          -F initial_comment="📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)"
+          FILE_SIZE=$(stat -c%s screenshot.png)
+
+          RESPONSE=$(curl -s -X POST https://slack.com/api/files.getUploadURLExternal \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"filename\":\"screenshot.png\",\"length\":$FILE_SIZE}")
+
+          UPLOAD_URL=$(echo $RESPONSE | jq -r '.upload_url')
+          FILE_ID=$(echo $RESPONSE | jq -r '.file_id')
+
+          curl -s -X POST "$UPLOAD_URL" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @screenshot.png
+
+          curl -s -X POST https://slack.com/api/files.completeUploadExternal \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"files\": [{\"id\": \"$FILE_ID\", \"title\": \"Carmedia Dashboard\"}],
+              \"channel_id\": \"$SLACK_CHANNEL_ID\",
+              \"initial_comment\": \"📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)\"
+            }"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID_CARMEDIA }}
