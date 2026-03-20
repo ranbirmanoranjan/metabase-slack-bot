@@ -1,4 +1,4 @@
-name: Carmedia Dashboard to Slack
+name: Carmedia Screenshot to Slack
 
 on:
   schedule:
@@ -32,7 +32,7 @@ jobs:
 
             const page = await browser.newPage();
 
-            await page.goto('${{ secrets.DASHBOARD_URL }}', {
+            await page.goto(process.env.DASHBOARD_URL, {
               waitUntil: 'networkidle2',
               timeout: 0
             });
@@ -50,12 +50,44 @@ jobs:
           })();
           EOF
 
-          node screenshot.js
+          DASHBOARD_URL=${{ secrets.DASHBOARD_URL }} node screenshot.js
 
-      - name: Send Message to Slack (FINAL)
+      # STEP 1: Get Upload URL
+      - name: Get Upload URL
+        id: upload_url
         run: |
-          curl -X POST -H 'Content-type: application/json' \
-          --data "{
-            \"text\": \"📊 *Carmedia QC Pendency Dashboard* (Auto every 3 hrs)\n🔗 ${{ secrets.DASHBOARD_URL }}\"
-          }" \
-          ${{ secrets.SLACK_WEBHOOK_URL }}
+          RESPONSE=$(curl -s -X POST https://slack.com/api/files.getUploadURLExternal \
+          -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "{\"filename\":\"screenshot.png\",\"length\":$(stat -c%s screenshot.png)}")
+
+          echo "$RESPONSE"
+
+          UPLOAD_URL=$(echo $RESPONSE | jq -r '.upload_url')
+          FILE_ID=$(echo $RESPONSE | jq -r '.file_id')
+
+          echo "UPLOAD_URL=$UPLOAD_URL" >> $GITHUB_ENV
+          echo "FILE_ID=$FILE_ID" >> $GITHUB_ENV
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+      # STEP 2: Upload File
+      - name: Upload File Binary
+        run: |
+          curl -X PUT "$UPLOAD_URL" \
+          -H "Content-Type: application/octet-stream" \
+          --data-binary @screenshot.png
+
+      # STEP 3: Complete Upload
+      - name: Complete Upload
+        run: |
+          curl -X POST https://slack.com/api/files.completeUploadExternal \
+          -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"files\": [{\"id\": \"$FILE_ID\", \"title\": \"Carmedia Dashboard\"}],
+            \"channel_id\": \"${{ secrets.SLACK_CHANNEL_ID_CARMEDIA }}\",
+            \"initial_comment\": \"📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)\"
+          }"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
