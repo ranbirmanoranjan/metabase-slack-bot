@@ -37,7 +37,6 @@ jobs:
               timeout: 0
             });
 
-            // same as Chevrolet — simple wait
             await new Promise(resolve => setTimeout(resolve, 25000));
 
             await page.setViewport({ width: 1920, height: 1080 });
@@ -53,13 +52,13 @@ jobs:
 
           node screenshot.js
 
-      - name: Send to Slack (CHEVROLET STYLE)
+      - name: Send Screenshot to Slack
         run: |
-          curl -F file=@screenshot.png \
-          -F "initial_comment=📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)" \
-          -F channels=$SLACK_CHANNEL_ID \
-          -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-          https://slack.com/api/files.upload
+          curl -X POST https://slack.com/api/files.upload \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -F file=@screenshot.png \
+            -F "initial_comment=📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)" \
+            -F channels=$SLACK_CHANNEL_ID
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID_CARMEDIA }}
