@@ -1,0 +1,64 @@
+name: Carmedia Screenshot to Slack
+
+on:
+  schedule:
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Node
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nodejs npm
+
+      - name: Install Puppeteer
+        run: |
+          npm init -y
+          npm install puppeteer
+
+      - name: Capture Screenshot
+        run: |
+          cat << 'EOF' > screenshot.js
+          const puppeteer = require('puppeteer');
+
+          (async () => {
+            const browser = await puppeteer.launch({
+              args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+
+            const page = await browser.newPage();
+
+            await page.goto('https://metabase.spyne.ai/public/question/0be95c61-f631-4138-aa45-8b5d59b385b7', {
+              waitUntil: 'networkidle2',
+              timeout: 0
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 20000));
+
+            await page.setViewport({ width: 1920, height: 1080 });
+
+            await page.screenshot({
+              path: 'screenshot.png',
+              fullPage: true
+            });
+
+            await browser.close();
+          })();
+          EOF
+
+          node screenshot.js
+
+      - name: Send to Slack
+        run: |
+          curl -F file=@screenshot.png \
+          -F "initial_comment=📊 Carmedia QC Pendency (Auto every 3 hrs)" \
+          -F channels=$SLACK_CHANNEL_ID_CARMEDIA \
+          -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+          https://slack.com/api/files.upload
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID_CARMEDIA: ${{ secrets.SLACK_CHANNEL_ID_CARMEDIA }}
