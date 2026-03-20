@@ -54,9 +54,13 @@ jobs:
         env:
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
 
+      - name: Verify Screenshot
+        run: |
+          ls -lh screenshot.png
+
       - name: Upload Screenshot to Slack (FINAL WORKING)
         run: |
-          FILE_SIZE=$(wc -c < screenshot.png)
+          FILE_SIZE=$(stat -c%s screenshot.png)
           echo "File size: $FILE_SIZE"
 
           RESPONSE=$(curl -s -X POST https://slack.com/api/files.getUploadURLExternal \
@@ -68,6 +72,9 @@ jobs:
 
           UPLOAD_URL=$(echo "$RESPONSE" | jq -r '.upload_url')
           FILE_ID=$(echo "$RESPONSE" | jq -r '.file_id')
+
+          echo "Upload URL: $UPLOAD_URL"
+          echo "File ID: $FILE_ID"
 
           curl -s -X POST "$UPLOAD_URL" \
             -H "Content-Type: application/octet-stream" \
