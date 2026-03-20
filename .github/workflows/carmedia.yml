@@ -59,19 +59,27 @@ jobs:
         run: |
           ls -lh screenshot.png
 
-      - name: Upload Screenshot to Slack (LATEST API)
+      - name: Upload Screenshot to Slack (FINAL FIXED)
         run: |
           FILE_SIZE=$(wc -c < screenshot.png)
 
+          echo "File size: $FILE_SIZE"
+
           RESPONSE=$(curl -s -X POST https://slack.com/api/files.getUploadURLExternal \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"filename\":\"screenshot.png\",\"length\":$FILE_SIZE}")
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data-binary @- <<EOF
+          {
+            "filename": "screenshot.png",
+            "length": $FILE_SIZE
+          }
+          EOF
+          )
 
           echo "Slack response: $RESPONSE"
 
-          UPLOAD_URL=$(echo $RESPONSE | jq -r '.upload_url')
-          FILE_ID=$(echo $RESPONSE | jq -r '.file_id')
+          UPLOAD_URL=$(echo "$RESPONSE" | jq -r '.upload_url')
+          FILE_ID=$(echo "$RESPONSE" | jq -r '.file_id')
 
           curl -s -X POST "$UPLOAD_URL" \
             -H "Content-Type: application/octet-stream" \
@@ -79,12 +87,14 @@ jobs:
 
           curl -s -X POST https://slack.com/api/files.completeUploadExternal \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"files\": [{\"id\": \"$FILE_ID\", \"title\": \"Carmedia Dashboard\"}],
-              \"channel_id\": \"$SLACK_CHANNEL_ID\",
-              \"initial_comment\": \"📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)\"
-            }"
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data-binary @- <<EOF
+          {
+            "files": [{"id": "$FILE_ID", "title": "Carmedia Dashboard"}],
+            "channel_id": "$SLACK_CHANNEL_ID",
+            "initial_comment": "📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)"
+          }
+          EOF
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID_CARMEDIA }}
