@@ -52,13 +52,14 @@ jobs:
 
           node screenshot.js
 
-      - name: Send to Slack
+      - name: Send Message to Slack
         run: |
-          curl -F file=@screenshot.png \
-          -F "initial_comment=📊 Carmedia QC Pendency (Auto every 3 hrs)" \
-          -F channels=$SLACK_CHANNEL_ID_CARMEDIA \
+          curl -X POST https://slack.com/api/chat.postMessage \
           -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-          https://slack.com/api/files.upload
+          -H "Content-type: application/json" \
+          --data "{
+            \"channel\": \"#carmedia-qc-pendency-internal\",
+            \"text\": \"📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)\"
+          }"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_CHANNEL_ID_CARMEDIA: ${{ secrets.SLACK_CHANNEL_ID_CARMEDIA }}
