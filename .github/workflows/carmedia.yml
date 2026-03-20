@@ -54,36 +54,40 @@ jobs:
         env:
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
 
-      - name: Verify Screenshot
-        run: |
-          ls -lh screenshot.png
-
-      - name: Upload Screenshot to Slack (FINAL WORKING)
+      - name: Upload Screenshot to Slack (FINAL FIX - JQ)
         run: |
           FILE_SIZE=$(stat -c%s screenshot.png)
           echo "File size: $FILE_SIZE"
 
+          PAYLOAD=$(jq -n \
+            --arg filename "screenshot.png" \
+            --argjson length $FILE_SIZE \
+            '{filename: $filename, length: $length}')
+
           RESPONSE=$(curl -s -X POST https://slack.com/api/files.getUploadURLExternal \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-Type: application/json" \
-            --data "{\"filename\":\"screenshot.png\",\"length\":$FILE_SIZE}")
+            --data "$PAYLOAD")
 
           echo "Slack response: $RESPONSE"
 
           UPLOAD_URL=$(echo "$RESPONSE" | jq -r '.upload_url')
           FILE_ID=$(echo "$RESPONSE" | jq -r '.file_id')
 
-          echo "Upload URL: $UPLOAD_URL"
-          echo "File ID: $FILE_ID"
-
           curl -s -X POST "$UPLOAD_URL" \
             -H "Content-Type: application/octet-stream" \
             --data-binary @screenshot.png
 
+          COMPLETE_PAYLOAD=$(jq -n \
+            --arg file_id "$FILE_ID" \
+            --arg channel "$SLACK_CHANNEL_ID" \
+            --arg comment "📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)" \
+            '{files: [{id: $file_id, title: "Carmedia Dashboard"}], channel_id: $channel, initial_comment: $comment}')
+
           curl -s -X POST https://slack.com/api/files.completeUploadExternal \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-Type: application/json" \
-            --data "{\"files\":[{\"id\":\"$FILE_ID\",\"title\":\"Carmedia Dashboard\"}],\"channel_id\":\"$SLACK_CHANNEL_ID\",\"initial_comment\":\"📊 Carmedia QC Pendency Dashboard (Auto every 3 hrs)\"}"
+            --data "$COMPLETE_PAYLOAD"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID_CARMEDIA }}
