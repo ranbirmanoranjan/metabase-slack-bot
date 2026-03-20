@@ -55,14 +55,20 @@ jobs:
         env:
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
 
+      - name: Verify Screenshot Exists
+        run: |
+          ls -lh screenshot.png
+
       - name: Upload Screenshot to Slack (LATEST API)
         run: |
-          FILE_SIZE=$(stat -c%s screenshot.png)
+          FILE_SIZE=$(wc -c < screenshot.png)
 
           RESPONSE=$(curl -s -X POST https://slack.com/api/files.getUploadURLExternal \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"filename\":\"screenshot.png\",\"length\":$FILE_SIZE}")
+
+          echo "Slack response: $RESPONSE"
 
           UPLOAD_URL=$(echo $RESPONSE | jq -r '.upload_url')
           FILE_ID=$(echo $RESPONSE | jq -r '.file_id')
