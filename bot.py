@@ -29,7 +29,8 @@ def main():
         page.wait_for_timeout(5000)
 
         # 🔥 STEP 4: take clean full screenshot
-        page.screenshot(path="dashboard.png", full_page=True)
+        page.set_viewport_size({"width": 1920, "height": 1500})
+        page.screenshot(path="dashboard.png", full_page=False)
 
         browser.close()
 
