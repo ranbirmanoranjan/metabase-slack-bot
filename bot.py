@@ -9,19 +9,15 @@ CHANNEL_ID = os.environ["CHANNEL_ID"]
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        page = browser.new_page(viewport={"width": 1920, "height": 1080})
+        
+        # ✅ NO viewport restriction
+        page = browser.new_page()
 
-        # Open dashboard
         page.goto(DASHBOARD_URL, wait_until="networkidle", timeout=90000)
 
-        # Wait for charts
         page.wait_for_timeout(30000)
 
-        # ❌ REMOVE extra scrolling logic
-        # ❌ REMOVE viewport changes
-        # ❌ REMOVE zoom
-
-        # ✅ SIMPLE screenshot (this was your 8:40 version)
+        # ✅ SIMPLE screenshot (no full_page, no scroll)
         page.screenshot(path="dashboard.png")
 
         browser.close()
