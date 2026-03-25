@@ -14,15 +14,15 @@ def main():
         # Open dashboard
         page.goto(DASHBOARD_URL, wait_until="networkidle", timeout=90000)
 
-        # Strong wait for charts/data
+        # Wait for charts
         page.wait_for_timeout(30000)
 
-        # Scroll to force lazy loading
-        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        page.wait_for_timeout(5000)
+        # ❌ REMOVE extra scrolling logic
+        # ❌ REMOVE viewport changes
+        # ❌ REMOVE zoom
 
-        # Take screenshot (original)
-        page.screenshot(path="dashboard.png", full_page=True)
+        # ✅ SIMPLE screenshot (this was your 8:40 version)
+        page.screenshot(path="dashboard.png")
 
         browser.close()
 
