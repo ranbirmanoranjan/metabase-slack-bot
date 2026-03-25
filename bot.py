@@ -5,7 +5,6 @@ import os
 DASHBOARD_URL = os.environ["DASHBOARD_URL"]
 SLACK_TOKEN = os.environ["SLACK_TOKEN"]
 CHANNEL_ID = os.environ["CHANNEL_ID"]
-ZOOM_LEVEL = os.environ.get("ZOOM_LEVEL", "100%")
 
 def main():
     with sync_playwright() as p:
@@ -15,22 +14,26 @@ def main():
         # Open dashboard
         page.goto(DASHBOARD_URL, wait_until="networkidle", timeout=90000)
 
-        # Wait for charts/data
+        # Wait for full load (important for Metabase)
         page.wait_for_timeout(30000)
 
-        # Scroll to force lazy loading
+        # 🔥 STEP 1: increase viewport height
+        page.set_viewport_size({"width": 1920, "height": 2000})
+
+        # 🔥 STEP 2: scroll to top first
+        page.evaluate("window.scrollTo(0, 0)")
+        page.wait_for_timeout(2000)
+
+        # 🔥 STEP 3: scroll to bottom (force lazy load)
         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         page.wait_for_timeout(5000)
 
-        # 🔥 FIX: Bigger viewport + zoom
-        page.set_viewport_size({"width": 1920, "height": 3000})
-        page.evaluate(f"document.body.style.zoom = '{ZOOM_LEVEL}'")
-
-        # Screenshot
+        # 🔥 STEP 4: take clean full screenshot
         page.screenshot(path="dashboard.png", full_page=True)
 
         browser.close()
 
+    # Upload to Slack
     client = WebClient(token=SLACK_TOKEN)
 
     client.files_upload_v2(
