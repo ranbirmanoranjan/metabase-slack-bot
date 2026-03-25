@@ -5,6 +5,7 @@ import os
 DASHBOARD_URL = os.environ["DASHBOARD_URL"]
 SLACK_TOKEN = os.environ["SLACK_TOKEN"]
 CHANNEL_ID = os.environ["CHANNEL_ID"]
+ZOOM_LEVEL = os.environ.get("ZOOM_LEVEL", "100%")
 
 def main():
     with sync_playwright() as p:
@@ -14,14 +15,18 @@ def main():
         # Open dashboard
         page.goto(DASHBOARD_URL, wait_until="networkidle", timeout=90000)
 
-        # Strong wait for charts/data
-        page.wait_for_timeout(30000)   # 30 sec wait
+        # Wait for charts/data
+        page.wait_for_timeout(30000)
 
         # Scroll to force lazy loading
         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         page.wait_for_timeout(5000)
 
-        # Take screenshot
+        # 🔥 FIX: Bigger viewport + zoom
+        page.set_viewport_size({"width": 1920, "height": 3000})
+        page.evaluate(f"document.body.style.zoom = '{ZOOM_LEVEL}'")
+
+        # Screenshot
         page.screenshot(path="dashboard.png", full_page=True)
 
         browser.close()
