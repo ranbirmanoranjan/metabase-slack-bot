@@ -8,17 +8,22 @@ CHANNEL_ID = os.environ["CHANNEL_ID"]
 
 def main():
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            args=["--start-maximized"]
-        )
+        browser = p.chromium.launch()
 
-        page = browser.new_page()
+        page = browser.new_page(viewport={"width": 1920, "height": 1080})
 
+        # Open dashboard
         page.goto(DASHBOARD_URL, wait_until="networkidle", timeout=90000)
 
+        # Wait for charts/data to load
         page.wait_for_timeout(30000)
 
-        page.screenshot(path="dashboard.png")
+        # Scroll to trigger lazy loading
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        page.wait_for_timeout(5000)
+
+        # Screenshot
+        page.screenshot(path="dashboard.png", full_page=True)
 
         browser.close()
 
