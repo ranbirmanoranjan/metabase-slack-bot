@@ -28,4 +28,5 @@ jobs:
           DASHBOARD_URL: https://metabase.spyne.ai/public/question/0be95c61-f631-4138-aa45-8b5d59b385b7
           SLACK_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           CHANNEL_ID: C0ANP0F0PDE
+          ZOOM_LEVEL: "150%"
         run: python bot.py
