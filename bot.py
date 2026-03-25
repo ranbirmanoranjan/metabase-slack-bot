@@ -14,27 +14,18 @@ def main():
         # Open dashboard
         page.goto(DASHBOARD_URL, wait_until="networkidle", timeout=90000)
 
-        # Wait for full load (important for Metabase)
+        # Strong wait for charts/data
         page.wait_for_timeout(30000)
 
-        # 🔥 STEP 1: increase viewport height
-        page.set_viewport_size({"width": 1920, "height": 2000})
-
-        # 🔥 STEP 2: scroll to top first
-        page.evaluate("window.scrollTo(0, 0)")
-        page.wait_for_timeout(2000)
-
-        # 🔥 STEP 3: scroll to bottom (force lazy load)
+        # Scroll to force lazy loading
         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         page.wait_for_timeout(5000)
 
-        # 🔥 STEP 4: take clean full screenshot
-        page.set_viewport_size({"width": 1920, "height": 1500})
-        page.screenshot(path="dashboard.png", full_page=False)
+        # Take screenshot (original)
+        page.screenshot(path="dashboard.png", full_page=True)
 
         browser.close()
 
-    # Upload to Slack
     client = WebClient(token=SLACK_TOKEN)
 
     client.files_upload_v2(
