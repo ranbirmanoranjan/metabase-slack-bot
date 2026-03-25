@@ -1,0 +1,31 @@
+name: Carmedia Screenshot to Slack
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */3 * * *"
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium
+
+      - name: Run bot
+        env:
+          DASHBOARD_URL: https://metabase.spyne.ai/public/question/0be95c61-f631-4138-aa45-8b5d59b385b7
+          SLACK_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          CHANNEL_ID: C0ANP0F0PDE
+        run: python bot.py
