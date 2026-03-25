@@ -8,16 +8,16 @@ CHANNEL_ID = os.environ["CHANNEL_ID"]
 
 def main():
     with sync_playwright() as p:
-        browser = p.chromium.launch()
-        
-        # ✅ NO viewport restriction
+        browser = p.chromium.launch(
+            args=["--start-maximized"]
+        )
+
         page = browser.new_page()
 
         page.goto(DASHBOARD_URL, wait_until="networkidle", timeout=90000)
 
         page.wait_for_timeout(30000)
 
-        # ✅ SIMPLE screenshot (no full_page, no scroll)
         page.screenshot(path="dashboard.png")
 
         browser.close()
