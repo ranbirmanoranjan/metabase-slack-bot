@@ -25,32 +25,33 @@ IST = timezone(timedelta(hours=5, minutes=30))
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.environ.get("OUT_DIR", HERE)
 
-# reason -> (colour, what it means / where to look)
+# reason -> (colour, exactly which data condition puts a VIN here; wording must match the CSV status columns)
 REASONS = {
-    "Not started processing":        ("#c2410c", "Never picked up by AI processing"),
-    "Stuck in AI processing":        ("#b45309", "Processing started, never finished"),
-    "Processing failed":             ("#b91c1c", "AI processing ended in Failed"),
-    "Waiting for QC":                ("#7c3aed", "Processed, QC not started"),
-    "In QC review":                  ("#6d28d9", "QC session open"),
-    "On QC hold":                    ("#9333ea", "Parked on QC hold"),
-    "QC done, FTP push missing":     ("#0369a1", "Rooftop expects a feed push, none sent"),
-    "Processed, no delivery record": ("#475569", "Done, but no push, webhook or QC done logged"),
-    "Waiting on dealer input":       ("#a16207", "Draft / not uploaded / insufficient assets"),
-    "Other":                         ("#64748b", "Unclassified"),
+    "Not started processing":                 ("#c2410c", "Current Status is Yet to Start"),
+    "Stuck in AI processing":                 ("#b45309", "Current Status is In Progress"),
+    "Processing failed":                      ("#b91c1c", "Current Status is Failed"),
+    "Waiting for QC":                         ("#7c3aed", "Current Status is Done; QC Status empty or unassigned"),
+    "In QC review":                           ("#6d28d9", "QC Status is assigned / in progress / editing"),
+    "On QC hold":                             ("#9333ea", "QC Status is qc_onhold"),
+    "QC done, FTP push missing":              ("#0369a1", "QC Status is qc_done; rooftop expects a feed push, none sent"),
+    "Marked QC done, delivery not confirmed": ("#475569", "QC Status is qc_done, but no QC-done event time, push or webhook is recorded"),
+    "Processed, delivery not confirmed":      ("#64748b", "Current Status is Done; no QC-done event, push or webhook is recorded"),
+    "Waiting on dealer input":                ("#a16207", "Current Status is Draft / yet_to_upload / insufficient assets"),
+    "Other":                                  ("#94a3b8", "Did not match any rule above"),
 }
 
 CSV_COLUMNS = [  # (source column, CSV header)
     ("vin", "VIN"), ("sku_id", "SKU ID"), ("dealer_vin_id", "Dealer VIN ID"),
-    ("reason", "Reason"), ("ageing_hrs", "VIN Ageing (hrs)"),
+    ("reason", "Reason"), ("reason_detail", "Reason Detail"), ("ageing_hrs", "VIN Ageing (hrs)"),
     ("current_status", "Current Status"), ("qc_status", "QC Status"),
-    ("last_activity", "Last Activity"), ("last_activity_ist", "Last Activity (IST)"),
-    ("hrs_since_last_activity", "Hrs Since Last Activity"),
+    ("last_activity", "Last Event in Activity Log"), ("last_activity_ist", "Last Event in Activity Log (IST)"),
+    ("hrs_since_last_activity", "Hrs Since Last Logged Event"),
     ("enterprise", "Enterprise"), ("enterprise_id", "Enterprise ID"),
     ("rooftop", "Rooftop"), ("team_id", "Team ID"),
     ("segment", "Segment"), ("region", "Region"), ("platform", "Platform"),
     ("qc_mode", "QC Mode"), ("input_source", "Input Source"),
     ("sku_created_ist", "SKU Created (IST)"), ("processing_start_ist", "Processing Start (IST)"),
-    ("sla_due_ist", "SLA Due (IST)"), ("qc_done_ist", "QC Done (IST)"),
+    ("sla_due_ist", "SLA Due (IST)"), ("qc_done_ist", "QC Done Event Time (IST)"),
     ("ftp_push_expected", "FTP Push Expected"), ("last_known_push_ist", "Last Known Push (IST)"),
     ("had_input_wait_or_hold", "Had Input Wait / QC Hold"), ("frames", "Frames"),
 ]
@@ -91,7 +92,7 @@ def num(v):
 
 # ---------------------------------------------------------------- summary
 def summarise(rows):
-    by_reason = defaultdict(list)
+    by_reason = defaultdict(list)  # unknown reason labels fall into "Other"
     for r in rows:
         by_reason[r["reason"] if r["reason"] in REASONS else "Other"].append(r)
     table = []
@@ -125,14 +126,14 @@ def render_html(s, now):
     max_n = max([t["n"] for t in s["table"]] or [1])
     rows_html = "".join(f"""
       <tr>
-        <td><div class="reason"><span class="dot" style="background:{REASONS[t['reason']][0]}"></span>
+        <td class="rcell"><div class="reason"><span class="dot" style="background:{REASONS[t['reason']][0]}"></span>
             <div><div class="rname">{e(t['reason'])}</div><div class="rdesc">{e(REASONS[t['reason']][1])}</div></div></div></td>
         <td class="num strong">{t['n']:,}</td>
-        <td><div class="bar"><span style="width:{t['n'] / max_n * 100:.1f}%;background:{REASONS[t['reason']][0]}"></span></div>
+        <td class="share"><div class="bar"><span style="width:{t['n'] / max_n * 100:.1f}%;background:{REASONS[t['reason']][0]}"></span></div>
             <div class="pct">{pct(t['n'], s['total'])}</div></td>
         <td class="num">{t['over24']:,}</td>
         <td class="num">{t['oldest']:.0f}h</td>
-        <td class="top">{e(t['top'])} <span class="muted">· {t['top_n']}</span></td>
+        <td><div class="top"><span class="tname">{e(t['top'])}</span><span class="muted">· {t['top_n']}</span></div></td>
       </tr>""" for t in s["table"])
     seg_html = "".join(f'<span class="chip">{e(name)} <b>{n:,}</b></span>' for name, n in s["segments"])
     return f"""<!doctype html><html><head><meta charset="utf-8"><style>
@@ -162,10 +163,13 @@ def render_html(s, now):
   .dot {{ width: 10px; height: 10px; border-radius: 3px; flex: none; }}
   .rname {{ font-weight: 600; }}
   .rdesc {{ font-size: 12px; color: #64748b; margin-top: 1px; }}
-  .bar {{ width: 150px; height: 8px; background: #f1f4f7; border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; }}
+  .share {{ white-space: nowrap; width: 150px; }}
+  td.rcell {{ width: 400px; }}
+  .bar {{ width: 100px; height: 8px; background: #f1f4f7; border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; }}
   .bar span {{ display: block; height: 100%; border-radius: 4px; }}
   .pct {{ display: inline-block; width: 38px; text-align: right; font-size: 12.5px; color: #475569; font-variant-numeric: tabular-nums; vertical-align: middle; }}
-  .top {{ font-size: 13px; color: #334155; max-width: 230px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+  .top {{ display: flex; gap: 5px; font-size: 13px; color: #334155; max-width: 220px; white-space: nowrap; }}
+  .tname {{ overflow: hidden; text-overflow: ellipsis; }}
   .muted {{ color: #94a3b8; }}
   .foot {{ display: flex; justify-content: space-between; align-items: center; padding: 14px 28px; background: #f8fafb; border-top: 1px solid #e5e9ee; font-size: 12.5px; color: #64748b; }}
   .chip {{ display: inline-block; background: #fff; border: 1px solid #e2e8f0; border-radius: 999px; padding: 3px 10px; margin-right: 6px; color: #334155; }}
@@ -206,6 +210,7 @@ def write_csv(rows, path):
         w = csv.writer(f)
         w.writerow([h for _, h in CSV_COLUMNS])
         for r in rows:
+            r["reason_detail"] = REASONS.get(r["reason"], REASONS["Other"])[1]
             w.writerow(["" if r.get(c) in (None, "\\N") else r[c] for c, _ in CSV_COLUMNS])  # \N = ClickHouse NULL
 
 
