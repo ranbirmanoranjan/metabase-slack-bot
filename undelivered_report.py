@@ -5,13 +5,14 @@ and post both to Slack in one message.
 
 Data source (first one configured wins):
   LOCAL_CSV                          read a CSV already exported (testing)
-  MB_URL + MB_API_KEY + MB_CARD_ID   Metabase saved question, via API key
+  MB_URL + MB_CARD_ID + (MB_API_KEY or MB_USER + MB_PASSWORD)   Metabase saved question
   CH_URL + CH_USER + CH_PASSWORD     ClickHouse HTTP, runs undelivered_6h_live.sql
 Slack: SLACK_TOKEN + CHANNEL_ID (if unset, files are only saved locally).
 """
 import csv
 import html
 import io
+import json
 import os
 import urllib.request
 from base64 import b64encode
@@ -60,9 +61,17 @@ def fetch_rows():
     if os.environ.get("LOCAL_CSV"):
         with open(os.environ["LOCAL_CSV"], newline="", encoding="utf-8") as f:
             return list(csv.DictReader(f))
-    if os.environ.get("MB_API_KEY"):
-        url = f"{os.environ['MB_URL'].rstrip('/')}/api/card/{os.environ['MB_CARD_ID']}/query/csv"
-        req = urllib.request.Request(url, method="POST", headers={"x-api-key": os.environ["MB_API_KEY"]})
+    if os.environ.get("MB_API_KEY") or os.environ.get("MB_PASSWORD"):
+        base = os.environ["MB_URL"].rstrip("/")
+        if os.environ.get("MB_API_KEY"):
+            auth = {"x-api-key": os.environ["MB_API_KEY"]}
+        else:  # log in with a user's email + password
+            login = urllib.request.Request(
+                f"{base}/api/session", method="POST", headers={"Content-Type": "application/json"},
+                data=json.dumps({"username": os.environ["MB_USER"], "password": os.environ["MB_PASSWORD"]}).encode())
+            with urllib.request.urlopen(login, timeout=60) as r:
+                auth = {"X-Metabase-Session": json.loads(r.read())["id"]}
+        req = urllib.request.Request(f"{base}/api/card/{os.environ['MB_CARD_ID']}/query/csv", method="POST", headers=auth)
     else:
         with open(os.path.join(HERE, "undelivered_6h_live.sql"), encoding="utf-8") as f:
             sql = f.read().rstrip().rstrip(";") + "\nFORMAT CSVWithNames"
