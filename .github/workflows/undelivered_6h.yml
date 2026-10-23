@@ -15,7 +15,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install playwright slack_sdk
-          playwright install --with-deps chromium
+          playwright install chromium
       - name: Build and post report
         env:
           MB_URL: https://metabase.spyne.ai
