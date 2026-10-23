@@ -19,7 +19,8 @@ jobs:
       - name: Build and post report
         env:
           MB_URL: https://metabase.spyne.ai
-          MB_API_KEY: ${{ secrets.METABASE_API_KEY }}
+          MB_USER: ${{ secrets.METABASE_USER }}
+          MB_PASSWORD: ${{ secrets.METABASE_PASSWORD }}
           MB_CARD_ID: ${{ vars.UNDELIVERED_6H_CARD_ID }}
           SLACK_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           CHANNEL_ID: ${{ vars.UNDELIVERED_6H_CHANNEL_ID }}
